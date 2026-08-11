@@ -5,6 +5,10 @@ Validates dependencies and automatically starts the Streamlit server.
 import sys
 import subprocess
 import os
+import warnings
+
+# Suppress benign protobuf deprecation warnings triggered by MediaPipe internals
+warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
 
 def check_dependencies():
     """Verify required Python packages are installed."""

@@ -4,6 +4,11 @@ Handles multi-face detection, selects the primary (largest) face,
 and extracts normalized 3D and pixel 2D facial landmarks.
 """
 import cv2
+import warnings
+
+# Suppress benign protobuf deprecation warnings triggered by MediaPipe internals
+warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
+
 import mediapipe as mp
 import numpy as np
 from utils.logger import logger

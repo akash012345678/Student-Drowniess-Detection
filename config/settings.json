@@ -27,5 +27,6 @@
     "screenshots_dir": "reports/screenshots",
     "logs_dir": "logs",
     "assets_dir": "assets"
-  }
+  },
+  "admin_password": "Password@123"
 }

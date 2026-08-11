@@ -45,6 +45,7 @@ def load_settings():
             "logs_dir": "logs",
             "assets_dir": "assets",
         },
+        "admin_password": "Password@123",
     }
 
 

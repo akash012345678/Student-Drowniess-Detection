@@ -216,36 +216,94 @@ def run_dashboard():
     else:
         calib_status_placeholder.caption("Click button to calibrate baseline to your facial structure.")
 
+    if "admin_authenticated" not in st.session_state:
+        st.session_state.admin_authenticated = False
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🔒 Threshold Governance")
+    admin_mode_toggle = st.sidebar.toggle(
+        "Enable Proctor / Admin Mode",
+        value=st.session_state.admin_authenticated,
+        help="Allows manual threshold override for instructors and proctors.",
+    )
+
+    if not admin_mode_toggle:
+        st.session_state.admin_authenticated = False
+
     # Preserve calibrated thresholds when active
     if "prev_ear_slider" not in st.session_state:
         st.session_state.prev_ear_slider = float(current_thresholds["ear_threshold"])
     if "prev_mar_slider" not in st.session_state:
         st.session_state.prev_mar_slider = float(current_thresholds["mar_threshold"])
 
-    ear_thresh = st.sidebar.slider(
-        "EAR Closed Threshold",
-        min_value=0.12,
-        max_value=0.35,
-        value=float(current_thresholds["ear_threshold"]),
-        step=0.01,
-    )
-    mar_thresh = st.sidebar.slider(
-        "MAR Yawn Threshold",
-        min_value=0.35,
-        max_value=0.85,
-        value=float(current_thresholds["mar_threshold"]),
-        step=0.02,
-    )
+    if admin_mode_toggle:
+        if not st.session_state.admin_authenticated:
+            pwd_input = st.sidebar.text_input(
+                "🔑 Enter Admin Password",
+                type="password",
+                key="admin_password_input",
+                help="Enter instructor/proctor passcode.",
+            )
+            if st.sidebar.button("🔓 Authenticate & Unlock", use_container_width=True):
+                expected_pwd = SETTINGS.get("admin_password", "admin")
+                if pwd_input == expected_pwd:
+                    st.session_state.admin_authenticated = True
+                    st.sidebar.success("✅ Admin Access Granted!")
+                    st.rerun()
+                else:
+                    st.sidebar.error("❌ Incorrect Password!")
 
-    # Only update manual thresholds if calibrator is NOT calibrating AND slider was explicitly changed by user
-    if not calibrator.is_calibrating:
-        if (
-            ear_thresh != st.session_state.prev_ear_slider
-            or mar_thresh != st.session_state.prev_mar_slider
-        ):
-            st.session_state.prev_ear_slider = ear_thresh
-            st.session_state.prev_mar_slider = mar_thresh
-            calibrator.set_manual_thresholds(ear_thresh, mar_thresh)
+    if admin_mode_toggle and st.session_state.admin_authenticated:
+        st.sidebar.caption("⚙️ Manual Proctor Controls Unlocked")
+        if st.sidebar.button("🔒 Lock Admin Mode", use_container_width=True):
+            st.session_state.admin_authenticated = False
+            st.rerun()
+
+        ear_thresh = st.sidebar.slider(
+            "EAR Closed Threshold",
+            min_value=0.12,
+            max_value=0.35,
+            value=float(current_thresholds["ear_threshold"]),
+            step=0.01,
+        )
+        mar_thresh = st.sidebar.slider(
+            "MAR Yawn Threshold",
+            min_value=0.35,
+            max_value=0.85,
+            value=float(current_thresholds["mar_threshold"]),
+            step=0.02,
+        )
+
+        # Only update manual thresholds if calibrator is NOT calibrating AND slider was explicitly changed by user
+        if not calibrator.is_calibrating:
+            if (
+                ear_thresh != st.session_state.prev_ear_slider
+                or mar_thresh != st.session_state.prev_mar_slider
+            ):
+                st.session_state.prev_ear_slider = ear_thresh
+                st.session_state.prev_mar_slider = mar_thresh
+                calibrator.set_manual_thresholds(ear_thresh, mar_thresh)
+
+    if not st.session_state.admin_authenticated:
+        st.sidebar.caption("🔒 Thresholds locked by Proctor policy. Calibration active.")
+        ear_thresh = st.sidebar.slider(
+            "EAR Closed Threshold (Locked)",
+            min_value=0.12,
+            max_value=0.35,
+            value=float(current_thresholds["ear_threshold"]),
+            step=0.01,
+            disabled=True,
+            help="Locked to prevent tampering. Enable Proctor Mode & enter password to adjust.",
+        )
+        mar_thresh = st.sidebar.slider(
+            "MAR Yawn Threshold (Locked)",
+            min_value=0.35,
+            max_value=0.85,
+            value=float(current_thresholds["mar_threshold"]),
+            step=0.02,
+            disabled=True,
+            help="Locked to prevent tampering. Enable Proctor Mode & enter password to adjust.",
+        )
 
 
 
@@ -291,7 +349,6 @@ def run_dashboard():
 
         st.markdown("### 📜 Recent Event Log")
         event_log_placeholder = st.empty()
-        event_log_download_placeholder = st.empty()
 
     # Handle Video Capture Input
     cap = None
@@ -300,6 +357,8 @@ def run_dashboard():
             cap = cv2.VideoCapture(webcam_index, cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY)
             if cap is None or not cap.isOpened():
                 cap = cv2.VideoCapture(webcam_index, cv2.CAP_ANY)
+            if cap is not None:
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         elif uploaded_file is not None:
             tfile = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
             tfile.write(uploaded_file.read())
@@ -307,6 +366,8 @@ def run_dashboard():
             cap = cv2.VideoCapture(tfile.name)
 
     prev_time = time.time()
+    frame_counter = 0
+    prev_state_logged = None
 
     # Video Loop Execution
     while st.session_state.running and cap is not None and cap.isOpened():
@@ -316,6 +377,7 @@ def run_dashboard():
             st.session_state.running = False
             break
 
+        frame_counter += 1
         curr_time = time.time()
         fps = 1.0 / max(1e-5, (curr_time - prev_time))
         prev_time = curr_time
@@ -359,9 +421,10 @@ def run_dashboard():
                     pose_data["yaw"],
                     landmarks=mesh_data["landmarks_pixel"],
                 )
-                calib_status_placeholder.warning(
-                    f"⏳ Calibrating... ({int(calib_progress)}%)\nLook normally at camera."
-                )
+                if frame_counter % 3 == 0:
+                    calib_status_placeholder.warning(
+                        f"⏳ Calibrating... ({int(calib_progress)}%)\nLook normally at camera."
+                    )
             else:
                 calib_progress = 100.0
 
@@ -382,7 +445,7 @@ def run_dashboard():
                     }
                 )
 
-            if calibrator.is_calibrated and not calibrator.is_calibrating:
+            if calibrator.is_calibrated and not calibrator.is_calibrating and (frame_counter % 15 == 0):
                 calib_status_placeholder.markdown(
                     f"""
                     <div style="background: rgba(0, 255, 135, 0.12); border: 1px solid #00ff87; padding: 10px 12px; border-radius: 8px; margin-top: 5px; margin-bottom: 10px;">
@@ -479,7 +542,7 @@ def run_dashboard():
                 yaw=0.0,
                 roll=0.0,
                 mar=0.0,
-                mar_threshold=mar_thresh,
+                mar_threshold=active_mar_thresh,
                 is_talking_mic=st.session_state.mic_detector.is_talking,
                 multiple_faces=False,
                 fps=fps,
@@ -536,7 +599,7 @@ def run_dashboard():
             attn_score,
         )
 
-        # 11. Render Annotated Video Frame
+        # 11. Render Annotated Video Frame (EVERY FRAME for 30 FPS video)
         annotated_frame = draw_visual_annotations(
             enhanced_frame,
             mesh_data,
@@ -548,83 +611,73 @@ def run_dashboard():
             calib_progress,
         )
 
-        # Display UI Status Badge & Frame
-        with status_placeholder.container():
-            render_status_pill(current_state)
-            
-            # Render Expression and Sound Level sub-badges
-            st.markdown(
-                f"""
-                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; margin-bottom: 15px;">
-                    <div style="background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(10px); padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); color: #f5f5f5; font-size: 13px; font-weight: 500;">
-                        🎭 Expression: <strong style="color: #00ff87;">{expression}</strong>
-                    </div>
-                    <div style="background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(10px); padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); color: #f5f5f5; font-size: 13px; font-weight: 500;">
-                        🎙️ Sound Level: <strong style="color: #00d7ff;">{st.session_state.mic_detector.current_db:.1f} dB</strong>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
         frame_rgb = cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB)
         video_placeholder.image(frame_rgb, channels="RGB", use_column_width=True)
 
-        # Update Metrics Column Cards
-        score_metric.metric("Attention Score", f"{attn_score:.1f} / 100")
-        ear_metric.metric("Avg EAR", f"{features['avg_ear']:.3f}")
-        blink_metric.metric("Blink Count", f"{drowsy_res['blink_count']}")
-        drowsy_dur_metric.metric("Drowsy Time", f"{drowsy_res['total_drowsy_duration']:.1f} s")
+        # Update Telemetry Metrics & Status Pills (Throttled every 3 frames for zero lag)
+        if frame_counter % 3 == 0 or current_state != prev_state_logged:
+            prev_state_logged = current_state
+            with status_placeholder.container():
+                render_status_pill(current_state)
+                st.markdown(
+                    f"""
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; margin-bottom: 15px;">
+                        <div style="background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(10px); padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); color: #f5f5f5; font-size: 13px; font-weight: 500;">
+                            🎭 Expression: <strong style="color: #00ff87;">{expression}</strong>
+                        </div>
+                        <div style="background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(10px); padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); color: #f5f5f5; font-size: 13px; font-weight: 500;">
+                            🎙️ Sound Level: <strong style="color: #00d7ff;">{st.session_state.mic_detector.current_db:.1f} dB</strong>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
-        pose_metric.metric("Head Pose", f"{pose_state_adj}")
-        mar_metric.metric("MAR (Mouth)", f"{features['mar']:.3f}")
-        yawn_metric.metric("Yawn Count", f"{distract_res['yawn_count']}")
-        distraction_metric.metric("Distraction Count", f"{distract_res['distraction_count']}")
+            score_metric.metric("Attention Score", f"{attn_score:.1f} / 100")
+            ear_metric.metric("Avg EAR", f"{features['avg_ear']:.3f}")
+            blink_metric.metric("Blink Count", f"{drowsy_res['blink_count']}")
+            drowsy_dur_metric.metric("Drowsy Time", f"{drowsy_res['total_drowsy_duration']:.1f} s")
 
-        session_dur = analytics.get_session_duration()
-        summary_stats = analytics.compute_summary(
-            drowsy_res["blink_count"],
-            distract_res["yawn_count"],
-            drowsy_res["total_drowsy_duration"],
-            distract_res["total_distraction_duration"],
-            distract_res["longest_distraction"],
-            drowsy_engine.drowsy_event_count,
-            distract_res["distraction_count"],
-        )
+            pose_metric.metric("Head Pose", f"{pose_state_adj}")
+            mar_metric.metric("MAR (Mouth)", f"{features['mar']:.3f}")
+            yawn_metric.metric("Yawn Count", f"{distract_res['yawn_count']}")
+            distraction_metric.metric("Distraction Count", f"{distract_res['distraction_count']}")
 
-        session_time_metric.metric("Session Time", f"{session_dur:.1f} s")
-        focus_pct_metric.metric("Focus %", f"{summary_stats['focus_percentage']:.1f} %")
-
-        # Update Live Timeline Chart
-        if len(analytics.history_timestamps) > 2:
-            chart_df = pd.DataFrame(
-                {
-                    "EAR (Eye)": analytics.history_ear[-60:],
-                    "MAR (Mouth)": analytics.history_mar[-60:],
-                }
-            )
-            chart_placeholder.line_chart(chart_df, height=180)
-
-        # Update Recent Event Log Table & Live CSV Download Button
-        if st.session_state.event_log:
-            event_df = pd.DataFrame(st.session_state.event_log)
-            event_log_placeholder.dataframe(
-                event_df.tail(8),
-                use_container_width=True,
-                hide_index=True,
-            )
-            event_csv_data = event_df.to_csv(index=False).encode("utf-8")
-            event_log_download_placeholder.download_button(
-                label="📥 Download Session Event Log (CSV)",
-                data=event_csv_data,
-                file_name=f"session_event_log_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv",
-                use_container_width=True,
-                key="live_event_log_download_btn",
+            session_dur = analytics.get_session_duration()
+            summary_stats = analytics.compute_summary(
+                drowsy_res["blink_count"],
+                distract_res["yawn_count"],
+                drowsy_res["total_drowsy_duration"],
+                distract_res["total_distraction_duration"],
+                distract_res["longest_distraction"],
+                drowsy_engine.drowsy_event_count,
+                distract_res["distraction_count"],
             )
 
-        # Small sleep to yield execution thread
-        time.sleep(0.01)
+            session_time_metric.metric("Session Time", f"{session_dur:.1f} s")
+            focus_pct_metric.metric("Focus %", f"{summary_stats['focus_percentage']:.1f} %")
+
+        # Update Heavy Components (Timeline Chart & Event Log DataFrame throttled every 10 frames)
+        if frame_counter % 10 == 0:
+            if len(analytics.history_timestamps) > 2:
+                chart_df = pd.DataFrame(
+                    {
+                        "EAR (Eye)": analytics.history_ear[-60:],
+                        "MAR (Mouth)": analytics.history_mar[-60:],
+                    }
+                )
+                chart_placeholder.line_chart(chart_df, height=180)
+
+            if st.session_state.event_log:
+                event_df = pd.DataFrame(st.session_state.event_log)
+                event_log_placeholder.dataframe(
+                    event_df.tail(8),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+
+        # Sleep minimal time to yield execution thread
+        time.sleep(0.001)
 
     if cap is not None:
         cap.release()
