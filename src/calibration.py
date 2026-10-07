@@ -35,6 +35,8 @@ class AdaptiveCalibrator:
             "brow_raise_baseline": 0.20,
             "brow_knit_baseline": 0.21,
         }
+        self.auto_calibrated_thresholds = dict(self.calibrated_thresholds)
+        self.is_manual_override = False
         self.just_finished = False
 
 
@@ -140,6 +142,10 @@ class AdaptiveCalibrator:
             self.calibrated_thresholds["brow_knit_baseline"],
         )
 
+        # Save baseline copy for deactivation / reset functionality
+        self.auto_calibrated_thresholds = dict(self.calibrated_thresholds)
+        self.is_manual_override = False
+
         logger.info(
             f"Adaptive Calibration finished. Calibrated Thresholds: {self.calibrated_thresholds}"
         )
@@ -152,4 +158,13 @@ class AdaptiveCalibrator:
         """Manually set active EAR and MAR thresholds from UI sliders."""
         self.calibrated_thresholds["ear_threshold"] = round(float(ear_threshold), 4)
         self.calibrated_thresholds["mar_threshold"] = round(float(mar_threshold), 4)
+        self.is_manual_override = True
+
+    def deactivate_manual_override(self):
+        """Restore thresholds to the last auto-calibrated baseline (or default settings)."""
+        self.calibrated_thresholds["ear_threshold"] = self.auto_calibrated_thresholds["ear_threshold"]
+        self.calibrated_thresholds["mar_threshold"] = self.auto_calibrated_thresholds["mar_threshold"]
+        self.is_manual_override = False
+        logger.info("Manual Admin Override deactivated. Restored auto-calibrated baseline.")
+
 

@@ -18,7 +18,7 @@ def inject_custom_css():
 
     /* Force all standard text & headings to be high-contrast white */
     .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
-    .stApp p, .stApp span, .stApp label, .stApp div {
+    .stApp p, .stApp span, .stApp label {
         color: #f8fafc;
     }
 
@@ -29,8 +29,7 @@ def inject_custom_css():
     }
     section[data-testid="stSidebar"] label,
     section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] span,
-    section[data-testid="stSidebar"] div {
+    section[data-testid="stSidebar"] span {
         color: #f1f5f9 !important;
         font-weight: 600 !important;
     }
@@ -116,8 +115,12 @@ def inject_custom_css():
         100% { transform: scale(1); }
     }
 
-    /* Custom Buttons Styling */
-    div.stButton > button {
+    /* Custom Buttons Universal High-Contrast Styling */
+    div.stButton > button,
+    button[data-testid="stBaseButton-secondary"],
+    button[data-testid="stBaseButton-primary"],
+    button[kind="secondary"],
+    button[kind="primary"] {
         background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
         color: #ffffff !important;
         font-weight: 700 !important;
@@ -129,10 +132,20 @@ def inject_custom_css():
         box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
     }
 
-    div.stButton > button:hover {
+    div.stButton > button:hover,
+    button[data-testid="stBaseButton-secondary"]:hover,
+    button[data-testid="stBaseButton-primary"]:hover {
         transform: translateY(-2px) !important;
         box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6) !important;
         background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    }
+
+    /* Force all text inside buttons to be crisp bold white */
+    div.stButton > button *,
+    button[data-testid="stBaseButton-secondary"] *,
+    button[data-testid="stBaseButton-primary"] * {
+        color: #ffffff !important;
+        font-weight: 700 !important;
     }
 
     /* Dataframe Table High Contrast Styling */

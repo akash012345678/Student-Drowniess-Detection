@@ -255,9 +255,44 @@ def run_dashboard():
 
     if admin_mode_toggle and st.session_state.admin_authenticated:
         st.sidebar.caption("⚙️ Manual Proctor Controls Unlocked")
-        if st.sidebar.button("🔒 Lock Admin Mode", use_container_width=True):
-            st.session_state.admin_authenticated = False
-            st.rerun()
+
+        col_adm1, col_adm2 = st.sidebar.columns(2)
+        with col_adm1:
+            if st.button("🔒 Lock Admin", use_container_width=True):
+                st.session_state.admin_authenticated = False
+                st.rerun()
+        with col_adm2:
+            if st.button("🔄 Reset to Calib", use_container_width=True, help="Deactivate manual override and revert to user's calibrated baseline"):
+                calibrator.deactivate_manual_override()
+                current_thresh = calibrator.get_thresholds()
+                st.session_state.prev_ear_slider = float(current_thresh["ear_threshold"])
+                st.session_state.prev_mar_slider = float(current_thresh["mar_threshold"])
+                st.sidebar.success("Reverted to Calibrated Baseline!")
+                st.rerun()
+
+        # Explicit Checkbox / Toggle for Manual Override
+        override_active = st.sidebar.checkbox(
+            "Enable Manual Threshold Override",
+            value=calibrator.is_manual_override,
+            help="Check to manually override thresholds with sliders below. Uncheck to deactivate manual threshold and return to user's calibrated baseline.",
+        )
+
+        if override_active != calibrator.is_manual_override:
+            if not override_active:
+                calibrator.deactivate_manual_override()
+                current_thresh = calibrator.get_thresholds()
+                st.session_state.prev_ear_slider = float(current_thresh["ear_threshold"])
+                st.session_state.prev_mar_slider = float(current_thresh["mar_threshold"])
+                st.rerun()
+            else:
+                calibrator.is_manual_override = True
+
+        if calibrator.is_manual_override:
+            st.sidebar.warning("⚠️ Manual Admin Override Active")
+        else:
+            st.sidebar.info("✅ Calibration Mode Active (Manual Override Deactivated)")
+
+        current_thresholds = calibrator.get_thresholds()
 
         ear_thresh = st.sidebar.slider(
             "EAR Closed Threshold",
@@ -265,6 +300,8 @@ def run_dashboard():
             max_value=0.35,
             value=float(current_thresholds["ear_threshold"]),
             step=0.01,
+            disabled=not calibrator.is_manual_override,
+            help="Check 'Enable Manual Threshold Override' above to enable slider adjustment." if not calibrator.is_manual_override else "Adjust EAR threshold manually.",
         )
         mar_thresh = st.sidebar.slider(
             "MAR Yawn Threshold",
@@ -272,10 +309,12 @@ def run_dashboard():
             max_value=0.85,
             value=float(current_thresholds["mar_threshold"]),
             step=0.02,
+            disabled=not calibrator.is_manual_override,
+            help="Check 'Enable Manual Threshold Override' above to enable slider adjustment." if not calibrator.is_manual_override else "Adjust MAR threshold manually.",
         )
 
-        # Only update manual thresholds if calibrator is NOT calibrating AND slider was explicitly changed by user
-        if not calibrator.is_calibrating:
+        # Only update manual thresholds if override is active, calibrator is NOT calibrating, AND slider was changed
+        if calibrator.is_manual_override and not calibrator.is_calibrating:
             if (
                 ear_thresh != st.session_state.prev_ear_slider
                 or mar_thresh != st.session_state.prev_mar_slider
@@ -436,6 +475,8 @@ def run_dashboard():
 
             if getattr(calibrator, "just_finished", False):
                 calibrator.just_finished = False
+                st.session_state.prev_ear_slider = float(active_ear_thresh)
+                st.session_state.prev_mar_slider = float(active_mar_thresh)
 
                 st.session_state.event_log.append(
                     {
@@ -575,7 +616,7 @@ def run_dashboard():
         )
 
         # 9. Session Analytics Recording
-        timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        timestamp_str = datetime.datetime.now().strftime("%H:%M:%S")
         analytics.record_frame(
             time.time(),
             features["avg_ear"],
