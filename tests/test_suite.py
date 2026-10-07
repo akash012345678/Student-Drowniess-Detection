@@ -155,12 +155,12 @@ class TestDrowsinessSystem(unittest.TestCase):
 
     def test_06_looking_down_pose(self):
         """Test Case 6: Looking Down (Phone simulation) classification."""
-        state = head_pose_estimator.classify_pose_state(pitch=-25.0, yaw=0.0)
+        state = head_pose_estimator.classify_pose_state(pitch=25.0, yaw=0.0)
         self.assertEqual(state, "Looking Down")
 
     def test_07_looking_up_pose(self):
         """Test Case 7: Looking Up classification."""
-        state = head_pose_estimator.classify_pose_state(pitch=25.0, yaw=0.0)
+        state = head_pose_estimator.classify_pose_state(pitch=-25.0, yaw=0.0)
         self.assertEqual(state, "Looking Up")
 
     def test_08_spectacles_handling(self):
@@ -267,7 +267,7 @@ class TestDrowsinessSystem(unittest.TestCase):
             res = detector.update(
                 face_found=True,
                 pose_state="Looking Down",
-                pitch=-25.0,
+                pitch=25.0,
                 yaw=0.0,
                 roll=0.0,
                 mar=0.15,
@@ -282,7 +282,7 @@ class TestDrowsinessSystem(unittest.TestCase):
         res = detector.update(
             face_found=True,
             pose_state="Looking Down",
-            pitch=-25.0,
+            pitch=25.0,
             yaw=0.0,
             roll=0.0,
             mar=0.15,
@@ -347,6 +347,61 @@ class TestDrowsinessSystem(unittest.TestCase):
 
         self.assertTrue(is_drowsy_triggered)
         self.assertGreater(detector.drowsy_event_count, 0)
+
+    def test_17_looking_right_distraction_flag(self):
+        """Test Case 17: Verify Looking Right immediately sets activity state to LOOKING_AWAY and flags distraction condition."""
+        detector = DistractionDetector()
+        res = detector.update(
+            face_found=True,
+            pose_state="Looking Right",
+            pitch=0.0,
+            yaw=25.0,
+            roll=0.0,
+            mar=0.15,
+            mar_threshold=0.55,
+            is_talking_mic=False,
+            multiple_faces=False,
+            fps=30.0,
+        )
+        self.assertEqual(res["activity_state"], "LOOKING_AWAY")
+        self.assertTrue(res["has_distraction_condition"])
+        self.assertIn("Looking Away", res["distraction_reason"])
+
+    def test_18_looking_left_and_down_distraction(self):
+        """Test Case 18: Verify Looking Left and Looking Down immediately flag distraction condition."""
+        detector = DistractionDetector()
+        # Test Looking Left
+        res_left = detector.update(
+            face_found=True,
+            pose_state="Looking Left",
+            pitch=0.0,
+            yaw=-25.0,
+            roll=0.0,
+            mar=0.15,
+            mar_threshold=0.55,
+            is_talking_mic=False,
+            multiple_faces=False,
+            fps=30.0,
+            eyes_closed=True,  # Test that closed eyes from side profile does NOT block distraction flag
+        )
+        self.assertEqual(res_left["activity_state"], "LOOKING_AWAY")
+        self.assertTrue(res_left["has_distraction_condition"])
+
+        # Test Looking Down (Bottom)
+        res_down = detector.update(
+            face_found=True,
+            pose_state="Looking Down",
+            pitch=25.0,
+            yaw=0.0,
+            roll=0.0,
+            mar=0.15,
+            mar_threshold=0.55,
+            is_talking_mic=False,
+            multiple_faces=False,
+            fps=30.0,
+        )
+        self.assertEqual(res_down["activity_state"], "USING_PHONE")
+        self.assertTrue(res_down["has_distraction_condition"])
 
 
 if __name__ == "__main__":

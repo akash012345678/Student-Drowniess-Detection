@@ -119,22 +119,23 @@ class DistractionDetector:
             # Head pose threshold settings
             yaw_left = SETTINGS["thresholds"]["yaw_left_threshold"]
             yaw_right = SETTINGS["thresholds"]["yaw_right_threshold"]
-            pitch_down = SETTINGS["thresholds"]["pitch_down_threshold"]
+            pitch_down = SETTINGS["thresholds"].get("pitch_down_threshold", 18.0)
+            pitch_up = SETTINGS["thresholds"].get("pitch_up_threshold", -18.0)
 
-            # Looking away with 3-degree hysteresis
+            # Looking away with 3-degree hysteresis (looking up, left, right)
             if self.activity_state == "LOOKING_AWAY":
-                is_looking_away = (yaw < (yaw_left + 3.0)) or (yaw > (yaw_right - 3.0))
+                is_looking_away = (yaw < (yaw_left + 3.0)) or (yaw > (yaw_right - 3.0)) or (pitch < (pitch_up + 3.0))
             else:
-                is_looking_away = (yaw < yaw_left) or (yaw > yaw_right)
+                is_looking_away = (yaw < yaw_left) or (yaw > yaw_right) or (pitch < pitch_up)
 
             # Phone usage (pitch down) with 4-degree hysteresis
             if self.activity_state == "USING_PHONE":
-                is_pitch_down = pitch < (pitch_down + 4.0)
+                is_pitch_down = pitch > (pitch_down - 4.0)
             else:
-                is_pitch_down = pitch < pitch_down
+                is_pitch_down = pitch > pitch_down
 
             # State Hierarchy Classification
-            if eyes_closed or is_drowsy:
+            if is_drowsy:
                 self.phone_usage_start_time = None
                 self.look_away_start_time = None
                 self.activity_state = "STUDYING"
@@ -144,25 +145,12 @@ class DistractionDetector:
                 self.look_away_start_time = None
             elif is_looking_away:
                 self.phone_usage_start_time = None
-                if self.look_away_start_time is None:
-                    self.look_away_start_time = curr_time
-                if curr_time - self.look_away_start_time >= 1.5:
-                    self.activity_state = "LOOKING_AWAY"
-                else:
-                    self.activity_state = "STUDYING"
+                self.look_away_start_time = None
+                self.activity_state = "LOOKING_AWAY"
             elif is_pitch_down:
                 self.look_away_start_time = None
-                # If eyes are closed or user is drowsy, treat as nodding off (STUDYING) rather than phone usage
-                if eyes_closed or is_drowsy:
-                    self.phone_usage_start_time = None
-                    self.activity_state = "STUDYING"
-                else:
-                    if self.phone_usage_start_time is None:
-                        self.phone_usage_start_time = curr_time
-                    if curr_time - self.phone_usage_start_time >= 1.5:
-                        self.activity_state = "USING_PHONE"
-                    else:
-                        self.activity_state = "WRITING_READING"
+                self.phone_usage_start_time = None
+                self.activity_state = "USING_PHONE"
             elif is_talking_mic or is_talking_mouth:
                 self.phone_usage_start_time = None
                 self.look_away_start_time = None
@@ -171,7 +159,7 @@ class DistractionDetector:
                 self.phone_usage_start_time = None
                 self.look_away_start_time = None
                 self.activity_state = "PLAYING_FIDGETING"
-            elif pitch_down <= pitch <= -6.0 and abs(yaw) <= 12.0:
+            elif 6.0 <= pitch <= pitch_down and abs(yaw) <= 12.0:
                 self.phone_usage_start_time = None
                 self.look_away_start_time = None
                 self.activity_state = "WRITING_READING"
@@ -273,7 +261,8 @@ class DistractionDetector:
 
         return {
             "is_distracted": self.is_distracted,
-            "distraction_reason": self.distraction_reason,
+            "has_distraction_condition": has_distraction_condition,
+            "distraction_reason": reason if has_distraction_condition else self.distraction_reason,
             "distraction_count": self.distraction_count,
             "distraction_event_triggered": distraction_event_triggered,
             "total_distraction_duration": round(

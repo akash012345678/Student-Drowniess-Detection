@@ -559,7 +559,7 @@ def run_dashboard():
                             "Details": f"EAR: {features['avg_ear']:.3f} (< {active_ear_thresh:.3f})",
                         }
                     )
-            elif distract_res["is_distracted"]:
+            elif distract_res["is_distracted"] or distract_res.get("has_distraction_condition", False) or pose_state_adj != "Normal":
                 current_state = "DISTRACTED"
                 if distract_res.get("distraction_event_triggered"):
                     trigger_audio_alert("distracted")
@@ -605,7 +605,7 @@ def run_dashboard():
         # 8. Attention Scorer Calculation
         attn_score = attention_scorer.calculate_score(
             is_drowsy=drowsy_res["is_drowsy"],
-            is_distracted=distract_res["is_distracted"],
+            is_distracted=distract_res["is_distracted"] or distract_res.get("has_distraction_condition", False),
             is_yawning=distract_res["is_yawning"],
             eyes_closed=drowsy_res.get("eyes_closed", False),
             pose_state=pose_state_adj,

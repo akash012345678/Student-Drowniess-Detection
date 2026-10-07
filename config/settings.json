@@ -3,10 +3,10 @@
     "default_ear_threshold": 0.20,
     "default_mar_threshold": 0.40,
     "blink_ear_threshold": 0.14,
-    "pitch_up_threshold": 15.0,
-    "pitch_down_threshold": -15.0,
-    "yaw_left_threshold": -15.0,
-    "yaw_right_threshold": 15.0,
+    "pitch_up_threshold": -18.0,
+    "pitch_down_threshold": 18.0,
+    "yaw_left_threshold": -22.0,
+    "yaw_right_threshold": 22.0,
     "roll_threshold": 20.0
   },
   "temporal": {

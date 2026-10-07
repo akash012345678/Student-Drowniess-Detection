@@ -29,7 +29,7 @@ class AdaptiveCalibrator:
         self.calibrated_thresholds = {
             "ear_threshold": SETTINGS["thresholds"]["default_ear_threshold"],
             "mar_threshold": SETTINGS["thresholds"]["default_mar_threshold"],
-            "pitch_offset": 0.0,
+            "pitch_offset": 11.4,
             "yaw_offset": 0.0,
             "smile_baseline": -0.02,
             "brow_raise_baseline": 0.20,

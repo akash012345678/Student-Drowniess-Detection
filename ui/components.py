@@ -9,6 +9,28 @@ def inject_custom_css():
     """Inject custom dark theme glassmorphic CSS styling with high-visibility contrast."""
     custom_css = """
     <style>
+    /* Streamlit Top Header Bar & Decoration Overrides */
+    header[data-testid="stHeader"],
+    div[data-testid="stHeader"],
+    header {
+        background: rgba(9, 13, 22, 0.95) !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+        color: #f8fafc !important;
+    }
+
+    [data-testid="stDecoration"] {
+        background: linear-gradient(90deg, #38bdf8, #818cf8, #c084fc) !important;
+        height: 3px !important;
+    }
+
+    [data-testid="stToolbar"] *,
+    [data-testid="stStatusWidget"] *,
+    header * {
+        color: #94a3b8 !important;
+    }
+
     /* Dark Theme Core */
     .stApp {
         background: linear-gradient(135deg, #090d16 0%, #111827 50%, #0f172a 100%) !important;
@@ -173,14 +195,18 @@ def inject_custom_css():
 
 
 def render_header():
-    """Render top application header banner."""
+    """Render top application header banner with dark glassmorphic styling."""
     st.markdown(
         """
-        <div style="text-align: center; padding: 1rem 0 1.5rem 0;">
-            <h1 style="background: linear-gradient(to right, #38bdf8, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 2.5rem; font-weight: 900; margin-bottom: 0.25rem;">
-                🎓 AI Student Drowsiness & Attention System
+        <div style="background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 16px; padding: 1.5rem 2rem; margin-bottom: 1.5rem; text-align: center; box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.5);">
+            <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 9999px; padding: 4px 14px; margin-bottom: 0.75rem;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; display: inline-block; box-shadow: 0 0 8px #38bdf8;"></span>
+                <span style="color: #38bdf8; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;">Real-Time AI Vision System</span>
+            </div>
+            <h1 style="background: linear-gradient(135deg, #ffffff 0%, #38bdf8 50%, #818cf8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 2.3rem; font-weight: 900; margin: 0 0 0.4rem 0; letter-spacing: -0.02em;">
+                🎓 Student Drowsiness & Attention Analytics Engine
             </h1>
-            <p style="color: #94a3b8; font-size: 1.1rem; max-width: 700px; margin: 0 auto;">
+            <p style="color: #94a3b8; font-size: 1.05rem; max-width: 750px; margin: 0 auto; line-height: 1.5; font-weight: 500;">
                 Real-Time Computer Vision & Temporal Attention Analytics powered by MediaPipe FaceMesh & 3D Pose Estimation
             </p>
         </div>

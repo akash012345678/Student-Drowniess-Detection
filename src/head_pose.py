@@ -94,10 +94,16 @@ class HeadPoseEstimator:
             yaw = float(euler_angles[1, 0])
             roll = float(euler_angles[2, 0])
 
-            # Pitch normalization adjustment for standard face orientation
+            # Pitch, Yaw, Roll normalization adjustment for standard face orientation
             pitch = ((pitch + 180) % 360) - 180
             yaw = ((yaw + 180) % 360) - 180
+
+            # Roll normalization centered around 0 degrees for level head
             roll = ((roll + 180) % 360) - 180
+            if roll > 90.0:
+                roll -= 180.0
+            elif roll < -90.0:
+                roll += 180.0
 
             # Determine pose state based on thresholds
             pose_state = self.classify_pose_state(pitch, yaw)
@@ -126,9 +132,9 @@ class HeadPoseEstimator:
             return "Looking Left"
         elif yaw > yaw_right:
             return "Looking Right"
-        elif pitch < pitch_down:
+        elif pitch > pitch_down:
             return "Looking Down"
-        elif pitch > pitch_up:
+        elif pitch < pitch_up:
             return "Looking Up"
         else:
             return "Normal"

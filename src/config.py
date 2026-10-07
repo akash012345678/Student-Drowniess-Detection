@@ -20,10 +20,10 @@ def load_settings():
             "default_ear_threshold": 0.20,
             "default_mar_threshold": 0.40,
             "blink_ear_threshold": 0.14,
-            "pitch_up_threshold": 15.0,
-            "pitch_down_threshold": -15.0,
-            "yaw_left_threshold": -15.0,
-            "yaw_right_threshold": 15.0,
+            "pitch_up_threshold": -18.0,
+            "pitch_down_threshold": 18.0,
+            "yaw_left_threshold": -22.0,
+            "yaw_right_threshold": 22.0,
             "roll_threshold": 20.0,
         },
         "temporal": {
@@ -92,11 +92,11 @@ POSE_2D_LANDMARKS = [
 # 3D Model Points for Canonical Face Model (in mm)
 POSE_3D_MODEL_POINTS = np.array([
     (0.0, 0.0, 0.0),          # Nose tip
-    (0.0, -330.0, -65.0),     # Chin
-    (-225.0, 170.0, -135.0),  # Left eye left corner
-    (225.0, 170.0, -135.0),   # Right eye right corner
-    (-150.0, -150.0, -125.0), # Left mouth corner
-    (150.0, -150.0, -125.0)   # Right mouth corner
+    (0.0, 330.0, -65.0),      # Chin
+    (-225.0, -170.0, -135.0), # Left eye left corner
+    (225.0, -170.0, -135.0),  # Right eye right corner
+    (-150.0, 150.0, -125.0),  # Left mouth corner
+    (150.0, 150.0, -125.0)    # Right mouth corner
 ], dtype=np.float64)
 
 # Color Palette for Visual Overlays (BGR Format)
